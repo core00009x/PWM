@@ -73,6 +73,7 @@ namespace PWM
             var editor = new Editor();
             editor.Text = "new file";
             tabControl1.Controls.Add(editor);
+            
         }
     }
 }
