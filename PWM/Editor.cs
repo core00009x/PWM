@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -12,16 +13,28 @@ using System.Windows.Forms;
 
 namespace PWM
 {
-    public partial class Editor : TabPage
+    public partial class Editor : Form
     {
+        private enum BufferSizes
+        {
+            TooSmall = 512,
+            Balanced = 1024,
+            Recommended = 4096,
+            High = 8192,
+            Large = 16384,
+            UltraLarge = 32768,
+            SuperLarge = 65536
+        }
+
         private RichTextBox rtb;
-        private const int defaultBufferSize = 65536;
+        public int defaultBufferSize = 16384;
 
         public string filePath = null;
         public string fileName = null;
         public string fileParent = null;
 
         public bool isSaved = false;
+        public bool autoSave = false;
 
         public Editor()
         {
@@ -37,21 +50,76 @@ namespace PWM
             rtb = new RichTextBox();
             rtb.Dock = DockStyle.Fill;
             rtb.Text = "";
+
             rtb.TextChanged += Rtb_TextChanged;
+            rtb.GotFocus += Rtb_GotFocus;
+
+            this.FormClosing += Editor_FormClosing;
 
             this.Controls.Add(rtb);
         }
 
+        private void Rtb_GotFocus(object sender, EventArgs e)
+        {
+            this.Focus();
+        }
+
+        private void Editor_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (isSaved == false)
+            {
+                DialogResult dr = MessageBox.Show("Do you want to save changes to " + this.Text + "?", "Unsaved Changes", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                if (dr == DialogResult.Yes)
+                {
+                    SaveFile();
+                }
+                else if (dr == DialogResult.Cancel)
+                {
+                    e.Cancel = true;
+                }
+            }
+        }
+
         private void Rtb_TextChanged(object sender, EventArgs e)
         {
-            if (this.Text.EndsWith("*") == false)
+            try
             {
-                this.Text = this.Text + "*";
+                if (this.Text.EndsWith("*") == false)
+                {
+                    this.Text = this.Text + "*";
+                    isSaved = false;
+                }
+                if (autoSave == true)
+                {
+                    SaveFile();
+                    if (this.Text.EndsWith("*"))
+                    {
+                        this.Text = this.Text.Substring(0, this.Text.Length - 1);
+                        isSaved = true;
+                    }
+                }
             }
-            else
+            catch (FileNotFoundException ex)
             {
-                return;
+                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (dr == DialogResult.OK)
+                {
+                    DestroyHandle();
+                }
             }
+            catch (Exception ex)
+            {
+                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (dr == DialogResult.OK)
+                {
+                    DestroyHandle();
+                }
+            }
+        }
+
+        public RichTextBox GetRTB() 
+        { 
+            return this.rtb; 
         }
 
         public string GetRTBText() 
@@ -64,24 +132,183 @@ namespace PWM
             rtb.Text = text;
         }
 
+        public void SaveFileAs()
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+            {
+                saveFileDialog.Title = "Save File As...";
+                saveFileDialog.InitialDirectory = "C:";
+                saveFileDialog.Filter = "";
+                try
+                {
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        if (filePath == null)
+                        {
+                            filePath = saveFileDialog.FileName;
+                            string[] strings = filePath.Split(Convert.ToChar("\\"));
+                            fileName = strings[strings.Length - 1];
+                            strings[strings.Length - 1] = "";
+                            fileParent = String.Join("\\", strings);
+                            this.Text = fileName;
+                        }
+                        try
+                        {
+                            StreamWriter streamWriter = new StreamWriter(saveFileDialog.FileName, false, DetectFileEncoding(saveFileDialog.FileName), defaultBufferSize);
+                            streamWriter.Write(rtb.Text);
+                            streamWriter.Close();
+                        }
+                        catch (InvalidCastException ex)
+                        {
+                            DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            if (dr == DialogResult.OK)
+                            {
+                                DestroyHandle();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            if (dr == DialogResult.OK)
+                            {
+                                DestroyHandle();
+                            }
+                        }
+                    }
+                }
+                catch (FileNotFoundException ex)
+                {
+                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (dr == DialogResult.OK)
+                    {
+                        DestroyHandle();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (dr == DialogResult.OK)
+                    {
+                        DestroyHandle();
+                    }
+                }
+            }
+            sw.Stop();
+        }
+
+        public void SaveFile()
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            if (filePath != null)
+            {
+                try
+                {
+                    StreamWriter streamWriter = new StreamWriter(filePath, false, DetectFileEncoding(filePath), defaultBufferSize);
+                    streamWriter.Write(rtb.Text);
+                    streamWriter.Close();
+                }
+                catch (InvalidCastException ex)
+                {
+                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (dr == DialogResult.OK)
+                    {
+                        DestroyHandle();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (dr == DialogResult.OK)
+                    {
+                        DestroyHandle();
+                    }
+                }
+                finally
+                {
+                    this.Text = fileName;
+                    isSaved = true;
+                }
+            }
+            else
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Title = "Save File As...";
+                    saveFileDialog.InitialDirectory = "C:";
+                    saveFileDialog.Filter = "";
+                    try
+                    {
+                        if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                        {
+                            filePath = saveFileDialog.FileName;
+                            string[] strings = filePath.Split(Convert.ToChar("\\"));
+                            fileName = strings[strings.Length - 1];
+                            strings[strings.Length - 1] = "";
+                            fileParent = String.Join("\\", strings);
+                            this.Text = fileName;
+                            try
+                            {
+                                StreamWriter streamWriter = new StreamWriter(filePath, false, DetectFileEncoding(filePath), defaultBufferSize);
+                                streamWriter.Write(rtb.Text);
+                                streamWriter.Close();
+                            }
+                            catch (InvalidCastException ex)
+                            {
+                                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                if (dr == DialogResult.OK)
+                                {
+                                    DestroyHandle();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                if (dr == DialogResult.OK)
+                                {
+                                    DestroyHandle();
+                                }
+                            }
+                            finally
+                            {
+                                this.Text = fileName;
+                                isSaved = true;
+                            }
+                        }
+                    }
+                    catch (FileNotFoundException ex)
+                    {
+                        DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        if (dr == DialogResult.OK)
+                        {
+                            DestroyHandle();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        if (dr == DialogResult.OK)
+                        {
+                            DestroyHandle();
+                        }
+                    }
+                }
+            }
+            sw.Stop();
+        }
+
         public void OpenFile(String path, Encoding encoding)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
             try
             {
-                if (encoding == null)
-                {
-                    StreamReader streamReader = new StreamReader(path, DetectFileEncoding(path), false, defaultBufferSize);
-                    var content = streamReader.ReadToEnd();
-                    SetRTBText(content);
-                    streamReader.Close();
-                }
-                else
-                {
-                    StreamReader streamReader = new StreamReader(path, encoding, false, defaultBufferSize);
-                    var content = streamReader.ReadToEnd();
-                    SetRTBText(content);
-                    streamReader.Close();
-                }
+                StreamReader streamReader = new StreamReader(path, DetectFileEncoding(path), false, defaultBufferSize);
+                var content = streamReader.ReadToEnd();
+                SetRTBText(content);
+                streamReader.Close();
             }
             catch (FileNotFoundException ex)
             {
@@ -102,7 +329,9 @@ namespace PWM
             finally
             {
                 this.Text = fileName;
+                isSaved = true;
             }
+            sw.Stop();
         }
 
         private Encoding DetectFileEncoding(string filePath)

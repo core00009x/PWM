@@ -56,11 +56,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Editor.cs">
-      <SubType>Component</SubType>
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Editor.Designer.cs">
       <DependentUpon>Editor.cs</DependentUpon>
     </Compile>
+    <Compile Include="Printer.cs" />
     <Compile Include="PWM.cs">
       <SubType>Form</SubType>
     </Compile>
