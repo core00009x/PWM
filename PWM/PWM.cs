@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -17,12 +19,19 @@ namespace PWM
         public List<String> pathOfRecentFiles = new List<String>();
 
         private bool isHaveRecentFiles = false;
+        private PrintDocument _printDocument;
+        private int _startChar;
+        private RichTextBox _richTextBox;
 
         public PWM()
         {
             InitializeComponent();
 
             pathOfRecentFiles.Clear();
+
+            _printDocument = new PrintDocument();
+            _printDocument.BeginPrint += BeginPrint;
+            _printDocument.PrintPage += PrintPage;
         }
 
         private void openSimpleFileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -67,7 +76,7 @@ namespace PWM
                 }
                 catch (Exception ex)
                 {
-                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    DialogResult dr = MessageBox.Show(ex.Message, "An Erryor as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     if (dr == DialogResult.OK)
                     {
                         DestroyHandle();
@@ -425,9 +434,459 @@ namespace PWM
             }
         }
 
+        public void Print(RichTextBox rb)
+        {
+            _richTextBox = rb;
+            PrintDialog printDialog = new PrintDialog
+            {
+                Document = _printDocument
+            };
+
+            if (printDialog.ShowDialog() == DialogResult.OK)
+            {
+                _printDocument.Print();
+            }
+        }
+
+        private void BeginPrint(object sender, PrintEventArgs e)
+        {
+            _startChar = 0;
+        }
+
+        private void PrintPage(object sender, PrintPageEventArgs e)
+        {
+            _startChar = PrintRichText(_richTextBox, _startChar, _richTextBox.TextLength, e);
+            e.HasMorePages = _startChar < _richTextBox.TextLength;
+        }
+
+        private int PrintRichText(RichTextBox rtb, int charFrom, int charTo, PrintPageEventArgs e)
+        {
+            // Create a RECT structure for the printable area
+            RECT rectToPrint;
+            rectToPrint.Top = HundredthInchToTwips(e.MarginBounds.Top);
+            rectToPrint.Bottom = HundredthInchToTwips(e.MarginBounds.Bottom);
+            rectToPrint.Left = HundredthInchToTwips(e.MarginBounds.Left);
+            rectToPrint.Right = HundredthInchToTwips(e.MarginBounds.Right);
+
+            // Create a RECT structure for the page
+            RECT rectPage;
+            rectPage.Top = HundredthInchToTwips(e.PageBounds.Top);
+            rectPage.Bottom = HundredthInchToTwips(e.PageBounds.Bottom);
+            rectPage.Left = HundredthInchToTwips(e.PageBounds.Left);
+            rectPage.Right = HundredthInchToTwips(e.PageBounds.Right);
+
+            IntPtr hdc = e.Graphics.GetHdc();
+
+            FORMATRANGE fmtRange;
+            fmtRange.chrg.cpMin = charFrom;
+            fmtRange.chrg.cpMax = charTo;
+            fmtRange.hdc = hdc;
+            fmtRange.hdcTarget = hdc;
+            fmtRange.rc = rectToPrint;
+            fmtRange.rcPage = rectPage;
+
+            IntPtr lParam = Marshal.AllocCoTaskMem(Marshal.SizeOf(fmtRange));
+            Marshal.StructureToPtr(fmtRange, lParam, false);
+
+            IntPtr wParam = new IntPtr(1); // Render
+
+            int printedChars = SendMessage(rtb.Handle, EM_FORMATRANGE, wParam, lParam);
+
+            Marshal.FreeCoTaskMem(lParam);
+            e.Graphics.ReleaseHdc(hdc);
+
+            return printedChars;
+        }
+
+        private int HundredthInchToTwips(int n)
+        {
+            return (int)(n * 14.4);
+        }
+
+        // Win32 API declarations
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left, Top, Right, Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct CHARRANGE
+        {
+            public int cpMin;
+            public int cpMax;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct FORMATRANGE
+        {
+            public IntPtr hdc;
+            public IntPtr hdcTarget;
+            public RECT rc;
+            public RECT rcPage;
+            public CHARRANGE chrg;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        private const int WM_USER = 0x0400;
+        private const int EM_FORMATRANGE = WM_USER + 57;
+
         private void printToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                Print(b.GetRTB());
+            }
+        }
+
+        public void ShowPageSetup()
+        {
+            PageSetupDialog setupDialog = new PageSetupDialog
+            {
+                Document = _printDocument
+            };
+            setupDialog.ShowDialog();
+        }
+
+        public void ShowPrintPreview()
+        {
+            PrintPreviewDialog previewDialog = new PrintPreviewDialog
+            {
+                Document = _printDocument,
+                Width = 800,
+                Height = 600
+            };
+            previewDialog.ShowDialog();
+        }
+
+        private void pageSetupToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                _richTextBox = b.GetRTB();
+                ShowPageSetup();
+            }
+        }
+
+        private void printPreviewToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                _richTextBox = b.GetRTB();
+                ShowPrintPreview();
+            }
+        }
+
+        private void undoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                if (b.GetRTB().CanUndo == true)
+                {
+                    b.GetRTB().Undo();
+                }
+            }
+        }
+
+        private void redoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                if (b.GetRTB().CanRedo == true)
+                {
+                    b.GetRTB().Redo();
+                }
+            }
+        }
+
+        private void cutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.GetRTB().Cut();
+            }
+        }
+
+        private void copyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.GetRTB().Copy();
+            }
+        }
+
+        private void pasteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.GetRTB().Paste();
+            }
+        }
+
+        private void deleteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.GetRTB().SelectedText = "";
+            }
+        }
+
+        private void selectAllToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.GetRTB().SelectAll();
+            }
+        }
+
+        private void duplicateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                DuplicateCurrentLine(b.GetRTB());
+            }
+        }
+
+        public void DuplicateCurrentLine(RichTextBox richTextBox)
+        {
+            int lineIndex = richTextBox.GetLineFromCharIndex(richTextBox.SelectionStart);
+            int lineStart = richTextBox.GetFirstCharIndexFromLine(lineIndex);
+            int lineEnd = (lineIndex < richTextBox.Lines.Length - 1)
+                ? richTextBox.GetFirstCharIndexFromLine(lineIndex + 1)
+                : richTextBox.TextLength;
+            string lineText = richTextBox.Text.Substring(lineStart, lineEnd - lineStart);
+            richTextBox.SelectionStart = lineEnd;
+            richTextBox.SelectionLength = 0;
+            richTextBox.SelectedText = lineText;
+        }
+
+        private void plainTextToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.PlainText);
+            }
+        }
+
+        private void richTextToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.RichText);
+            }
+        }
+
+        private void unicodeTextToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.UnicodeText);
+            }
+        }
+
+        private void htmlToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Html);
+            }
+        }
+
+        private void markdownToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Markdown);
+            }
+        }
+
+        private void codeBlockToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.CodeBlock);
+            }
+        }
+
+        private void noImagesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.NoImages);
+            }
+        }
+
+        private void quoteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Quote);
+            }
+        }
+
+        private void timestampedToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Timestamped);
+            }
+        }
+
+        private void commentToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Comment);
+            }
+        }
+
+        private void titlecaseToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.TitleCase);
+            }
+        }
+
+        private void lowercaseToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Lowercase);
+            }
+        }
+
+        private void uppercaseToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Uppercase);
+            }
+        }
+
+        private void reversedTextToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.ReversedText);
+            }
+        }
+
+        private void bulletListToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.BulletList);
+            }
+        }
+
+        private void numberedListToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.NumberedList);
+            }
+        }
+
+        private void jsonBlockToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.JsonBlock);
+            }
+        }
+
+        private void xmlBlockToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.XmlBlock);
+            }
+        }
+
+        private void tableToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Table);
+            }
+        }
+
+        private void hashtagsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.Hashtags);
+            }
+        }
+
+        private void emojiTextToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.EmojiText);
+            }
+        }
+
+        private void morseCodeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.MorseCode);
+            }
+        }
+
+        private void pigLatinToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.PigLatin);
+            }
+        }
+
+        private void rot13ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.ActiveMdiChild != null)
+            {
+                var b = this.ActiveMdiChild as Editor;
+                b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.ROT13);
+            }
         }
     }
 }

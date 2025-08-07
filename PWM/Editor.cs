@@ -4,9 +4,11 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -15,6 +17,34 @@ namespace PWM
 {
     public partial class Editor : Form
     {
+        public enum PasteSpecialFormat
+        {
+            PlainText,
+            RichText,
+            UnicodeText,
+            Html,
+            Markdown,
+            CodeBlock,
+            NoImages,
+            Quote,
+            Timestamped,
+            Comment,
+            TitleCase,
+            Lowercase,
+            Uppercase,
+            ReversedText,
+            BulletList,
+            NumberedList,
+            JsonBlock,
+            XmlBlock,
+            Table,
+            Hashtags,
+            EmojiText,
+            MorseCode,
+            PigLatin,
+            ROT13,
+        }
+
         private enum BufferSizes
         {
             TooSmall = 512,
@@ -230,6 +260,7 @@ namespace PWM
                 {
                     this.Text = fileName;
                     isSaved = true;
+                    fileSystemWatcher1.Path = filePath;
                 }
             }
             else
@@ -275,6 +306,7 @@ namespace PWM
                             {
                                 this.Text = fileName;
                                 isSaved = true;
+                                fileSystemWatcher1.Path = filePath;
                             }
                         }
                     }
@@ -330,6 +362,7 @@ namespace PWM
             {
                 this.Text = fileName;
                 isSaved = true;
+                fileSystemWatcher1.Path = filePath;
             }
             sw.Stop();
         }
@@ -348,6 +381,272 @@ namespace PWM
             if (bom[0] == 0xff && bom[1] == 0xfe && bom[2] == 0x00 && bom[3] == 0x00) return Encoding.UTF32;
 
             return Encoding.UTF8;
+        }
+
+        private void fileSystemWatcher1_Changed(object sender, FileSystemEventArgs e)
+        {
+            try
+            {
+                OpenFile(e.FullPath, DetectFileEncoding(e.FullPath));
+                SaveFile();
+            }
+            catch (FileNotFoundException ex)
+            {
+                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (dr == DialogResult.OK)
+                {
+                    DestroyHandle();
+                }
+            }
+            catch (Exception ex)
+            {
+                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (dr == DialogResult.OK)
+                {
+                    DestroyHandle();
+                }
+            }
+        }
+
+        private void fileSystemWatcher1_Deleted(object sender, FileSystemEventArgs e)
+        {
+            if (this.Text.EndsWith("*") == false)
+            {
+                this.Text = this.Text + "*";
+                isSaved = false;
+            }
+            DialogResult dr =  MessageBox.Show($"The file: {e.Name} has been deleted!You want to save again?", "The File Has Been Deleted!", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+            if (dr == DialogResult.OK)
+            {
+                SaveFile();
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        private void fileSystemWatcher1_Renamed(object sender, RenamedEventArgs e)
+        {
+            filePath = e.FullPath;
+            fileName = e.Name;
+            this.Text = fileName;
+        }
+
+        public void PasteSpecial(RichTextBox richTextBox, PasteSpecialFormat format)
+        {
+            IDataObject clipboardData = Clipboard.GetDataObject();
+            if (clipboardData == null) return;
+
+            string input = Clipboard.GetText();
+
+            switch (format)
+            {
+                case PasteSpecialFormat.PlainText:
+                    richTextBox.SelectedText = input;
+                    break;
+
+                case PasteSpecialFormat.RichText:
+                    if (clipboardData.GetDataPresent(DataFormats.Rtf))
+                        richTextBox.SelectedRtf = Clipboard.GetText(TextDataFormat.Rtf);
+                    else
+                        richTextBox.SelectedText = input;
+                    break;
+
+                case PasteSpecialFormat.UnicodeText:
+                    richTextBox.SelectedText = Clipboard.GetText(TextDataFormat.UnicodeText);
+                    break;
+
+                case PasteSpecialFormat.Html:
+                    richTextBox.SelectedText = Clipboard.GetText(TextDataFormat.Html);
+                    break;
+
+                case PasteSpecialFormat.Markdown:
+                    richTextBox.SelectedText = ConvertToMarkdown(input);
+                    break;
+
+                case PasteSpecialFormat.CodeBlock:
+                    richTextBox.SelectionFont = new Font("Consolas", 10);
+                    richTextBox.SelectedText = input;
+                    break;
+
+                case PasteSpecialFormat.NoImages:
+                    string rtf = Clipboard.GetText(TextDataFormat.Rtf);
+                    richTextBox.SelectedRtf = StripImagesFromRtf(rtf);
+                    break;
+
+                case PasteSpecialFormat.Quote:
+                    richTextBox.SelectedText = "> " + input.Replace("\n", "\n> ");
+                    break;
+
+                case PasteSpecialFormat.Timestamped:
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    richTextBox.SelectedText = $"[{timestamp}]\n{input}";
+                    break;
+
+                case PasteSpecialFormat.Comment:
+                    richTextBox.SelectedText = $"/* {input} */";
+                    break;
+
+                case PasteSpecialFormat.TitleCase:
+                    richTextBox.SelectedText = ToTitleCase(input);
+                    break;
+
+                case PasteSpecialFormat.Lowercase:
+                    richTextBox.SelectedText = input.ToLower();
+                    break;
+
+                case PasteSpecialFormat.Uppercase:
+                    richTextBox.SelectedText = input.ToUpper();
+                    break;
+
+                case PasteSpecialFormat.ReversedText:
+                    richTextBox.SelectedText = new string(input.Reverse().ToArray());
+                    break;
+
+                case PasteSpecialFormat.BulletList:
+                    richTextBox.SelectedText = ToBulletList(input);
+                    break;
+
+                case PasteSpecialFormat.NumberedList:
+                    richTextBox.SelectedText = ToNumberedList(input);
+                    break;
+
+                case PasteSpecialFormat.JsonBlock:
+                    richTextBox.SelectedText = $"{{ \"content\": \"{EscapeJson(input)}\" }}";
+                    break;
+
+                case PasteSpecialFormat.XmlBlock:
+                    richTextBox.SelectedText = $"<content>{System.Security.SecurityElement.Escape(input)}</content>";
+                    break;
+
+                case PasteSpecialFormat.Table:
+                    richTextBox.SelectedText = ConvertToTable(input);
+                    break;
+
+                case PasteSpecialFormat.Hashtags:
+                    richTextBox.SelectedText = ConvertToHashtags(input);
+                    break;
+
+                case PasteSpecialFormat.EmojiText:
+                    richTextBox.SelectedText = ConvertToEmojiText(input);
+                    break;
+
+                case PasteSpecialFormat.MorseCode:
+                    richTextBox.SelectedText = ConvertToMorseCode(input);
+                    break;
+
+                case PasteSpecialFormat.PigLatin:
+                    richTextBox.SelectedText = ConvertToPigLatin(input);
+                    break;
+
+                case PasteSpecialFormat.ROT13:
+                    richTextBox.SelectedText = ApplyROT13(input);
+                    break;
+            }
+        }
+
+        private string ToTitleCase(string input) =>
+            CultureInfo.CurrentCulture.TextInfo.ToTitleCase(input.ToLower());
+
+        private string ToBulletList(string input) =>
+            string.Join("\n", input.Split('\n').Select(line => "• " + line));
+
+        private string ToNumberedList(string input) =>
+            string.Join("\n", input.Split('\n').Select((line, i) => $"{i + 1}. {line}"));
+
+        private string EscapeJson(string input) =>
+            input.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+        private string ConvertToMarkdown(string input) =>
+            input.Replace("<b>", "**").Replace("</b>", "**").Replace("<i>", "*").Replace("</i>", "*");
+
+        private string StripImagesFromRtf(string rtf) =>
+            Regex.Replace(rtf, @"\\pict[\s\S]+?}", "");
+
+        private string ConvertToTable(string input)
+        {
+            var rows = input.Split('\n');
+            var table = new StringBuilder();
+            foreach (var row in rows)
+            {
+                var cells = row.Split('\t');
+                table.AppendLine(string.Join(" | ", cells));
+            }
+            return table.ToString();
+        }
+
+        private string ConvertToHashtags(string input)
+        {
+            var words = Regex.Matches(input, @"\b\w+\b")
+                             .Cast<Match>()
+                             .Select(m => "#" + m.Value);
+            return string.Join(" ", words);
+        }
+
+        private string ConvertToEmojiText(string input)
+        {
+            return input.Replace("happy", "😊")
+                        .Replace("sad", "😢")
+                        .Replace("love", "❤️")
+                        .Replace("cool", "😎");
+        }
+
+        private string ConvertToMorseCode(string input)
+        {
+            var morseMap = new Dictionary<char, string>
+            {
+                ['a'] = ".-",
+                ['b'] = "-...",
+                ['c'] = "-.-.",
+                ['d'] = "-..",
+                ['e'] = ".",
+                ['f'] = "..-.",
+                ['g'] = "--.",
+                ['h'] = "....",
+                ['i'] = "..",
+                ['j'] = ".---",
+                ['k'] = "-.-",
+                ['l'] = ".-..",
+                ['m'] = "--",
+                ['n'] = "-.",
+                ['o'] = "---",
+                ['p'] = ".--.",
+                ['q'] = "--.-",
+                ['r'] = ".-.",
+                ['s'] = "...",
+                ['t'] = "-",
+                ['u'] = "..-",
+                ['v'] = "...-",
+                ['w'] = ".--",
+                ['x'] = "-..-",
+                ['y'] = "-.--",
+                ['z'] = "--..",
+                [' '] = "/"
+            };
+
+            return string.Join(" ", input.ToLower().Where(c => morseMap.ContainsKey(c)).Select(c => morseMap[c]));
+        }
+
+        private string ConvertToPigLatin(string input)
+        {
+            return string.Join(" ", input.Split(' ').Select(word =>
+            {
+                if (string.IsNullOrWhiteSpace(word)) return word;
+                string first = word.Substring(0, 1);
+                string rest = word.Substring(1);
+                return rest + first + "ay";
+            }));
+        }
+
+        private string ApplyROT13(string input)
+        {
+            return new string(input.Select(c =>
+            {
+                if (!char.IsLetter(c)) return c;
+                char offset = char.IsUpper(c) ? 'A' : 'a';
+                return (char)(((c - offset + 13) % 26) + offset);
+            }).ToArray());
         }
     }
 }
