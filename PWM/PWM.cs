@@ -888,5 +888,37 @@ namespace PWM
                 b.PasteSpecial(b.GetRTB(), Editor.PasteSpecialFormat.ROT13);
             }
         }
+
+        private void undoLastGlobalActionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.MdiChildren.Length > 0)
+            {
+                var b = this.MdiChildren;
+                foreach (var form in b)
+                {
+                    var x = form as Editor;
+                    if (x.GetRTB().CanUndo == true)
+                    {
+                        x.GetRTB().Undo();
+                    }
+                }
+            }
+        }
+
+        private void redoLastGlobalActionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.MdiChildren.Length > 0)
+            {
+                var b = this.MdiChildren;
+                foreach (var form in b)
+                {
+                    var x = form as Editor;
+                    if (x.GetRTB().CanRedo == true)
+                    {
+                        x.GetRTB().Redo();
+                    }
+                }
+            }
+        }
     }
 }
