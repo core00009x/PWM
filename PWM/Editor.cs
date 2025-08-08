@@ -131,7 +131,7 @@ namespace PWM
             }
             catch (FileNotFoundException ex)
             {
-                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 if (dr == DialogResult.OK)
                 {
                     DestroyHandle();
@@ -139,7 +139,7 @@ namespace PWM
             }
             catch (Exception ex)
             {
-                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 if (dr == DialogResult.OK)
                 {
                     DestroyHandle();
@@ -192,7 +192,7 @@ namespace PWM
                         }
                         catch (InvalidCastException ex)
                         {
-                            DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             if (dr == DialogResult.OK)
                             {
                                 DestroyHandle();
@@ -200,7 +200,7 @@ namespace PWM
                         }
                         catch (Exception ex)
                         {
-                            DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             if (dr == DialogResult.OK)
                             {
                                 DestroyHandle();
@@ -210,7 +210,7 @@ namespace PWM
                 }
                 catch (FileNotFoundException ex)
                 {
-                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     if (dr == DialogResult.OK)
                     {
                         DestroyHandle();
@@ -218,7 +218,7 @@ namespace PWM
                 }
                 catch (Exception ex)
                 {
-                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     if (dr == DialogResult.OK)
                     {
                         DestroyHandle();
@@ -242,7 +242,7 @@ namespace PWM
                 }
                 catch (InvalidCastException ex)
                 {
-                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     if (dr == DialogResult.OK)
                     {
                         DestroyHandle();
@@ -250,7 +250,7 @@ namespace PWM
                 }
                 catch (Exception ex)
                 {
-                    DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     if (dr == DialogResult.OK)
                     {
                         DestroyHandle();
@@ -288,7 +288,7 @@ namespace PWM
                             }
                             catch (InvalidCastException ex)
                             {
-                                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                                 if (dr == DialogResult.OK)
                                 {
                                     DestroyHandle();
@@ -296,7 +296,7 @@ namespace PWM
                             }
                             catch (Exception ex)
                             {
-                                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                                 if (dr == DialogResult.OK)
                                 {
                                     DestroyHandle();
@@ -312,7 +312,7 @@ namespace PWM
                     }
                     catch (FileNotFoundException ex)
                     {
-                        DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         if (dr == DialogResult.OK)
                         {
                             DestroyHandle();
@@ -320,7 +320,7 @@ namespace PWM
                     }
                     catch (Exception ex)
                     {
-                        DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         if (dr == DialogResult.OK)
                         {
                             DestroyHandle();
@@ -344,7 +344,7 @@ namespace PWM
             }
             catch (FileNotFoundException ex)
             {
-                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 if (dr == DialogResult.OK)
                 {
                     DestroyHandle();
@@ -352,7 +352,7 @@ namespace PWM
             }
             catch (Exception ex) 
             {
-                DialogResult dr = MessageBox.Show(ex.Message,"An Error as Occurred!",MessageBoxButtons.OK,MessageBoxIcon.Error);
+                DialogResult dr = MessageBox.Show(ex.StackTrace,"An Error as Occurred!",MessageBoxButtons.OK,MessageBoxIcon.Error);
                 if (dr == DialogResult.OK)
                 {
                     DestroyHandle();
@@ -392,7 +392,7 @@ namespace PWM
             }
             catch (FileNotFoundException ex)
             {
-                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 if (dr == DialogResult.OK)
                 {
                     DestroyHandle();
@@ -400,7 +400,7 @@ namespace PWM
             }
             catch (Exception ex)
             {
-                DialogResult dr = MessageBox.Show(ex.Message, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                DialogResult dr = MessageBox.Show(ex.StackTrace, "An Error as Occurred!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 if (dr == DialogResult.OK)
                 {
                     DestroyHandle();
